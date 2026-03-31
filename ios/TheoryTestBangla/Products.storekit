@@ -1,0 +1,44 @@
+{
+  "identifier" : "TheoryTestBangla",
+  "nonRenewableSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "1",
+      "localizations" : [
+        {
+          "description" : "Unlock all premium features forever",
+          "displayName" : "Theory Test Bangla Premium",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "theorytestbanglapremium",
+      "referenceName" : "Theory Test Bangla Premium",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "TheoryTestBangla",
+    "_developerTeamID" : "57U9ZAMHPR",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_GB",
+    "_storefront" : "GBR",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

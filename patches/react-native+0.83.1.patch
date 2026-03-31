@@ -1,0 +1,34 @@
+diff --git a/node_modules/react-native/ReactCommon/hermes/executor/HermesExecutorFactory.cpp b/node_modules/react-native/ReactCommon/hermes/executor/HermesExecutorFactory.cpp
+index 8d58bb3..d01cc64 100644
+--- a/node_modules/react-native/ReactCommon/hermes/executor/HermesExecutorFactory.cpp
++++ b/node_modules/react-native/ReactCommon/hermes/executor/HermesExecutorFactory.cpp
+@@ -12,6 +12,7 @@
+ #include <hermes/hermes.h>
+ #include <jsi/decorator.h>
+ #include <jsinspector-modern/InspectorFlags.h>
++#include <thread>
+ 
+ #include <hermes/inspector-modern/chrome/HermesRuntimeTargetDelegate.h>
+ 
+diff --git a/node_modules/react-native/ReactCommon/reactperflogger/fusebox/FuseboxTracer.cpp b/node_modules/react-native/ReactCommon/reactperflogger/fusebox/FuseboxTracer.cpp
+index 9f2b25d..53ea7e5 100644
+--- a/node_modules/react-native/ReactCommon/reactperflogger/fusebox/FuseboxTracer.cpp
++++ b/node_modules/react-native/ReactCommon/reactperflogger/fusebox/FuseboxTracer.cpp
+@@ -72,7 +72,7 @@ bool FuseboxTracer::stopTracing(
+ 
+   for (auto& event : savedBuffer) {
+     // For events with a custom track name, register track
+-    if (!event.track.empty() && !trackIdMap.contains(event.track)) {
++    if (!event.track.empty() && trackIdMap.find(event.track) == trackIdMap.end()) {
+       auto trackId = nextTrack++;
+       trackIdMap[event.track] = trackId;
+       traceEvents.push_back(
+@@ -83,7 +83,7 @@ bool FuseboxTracer::stopTracing(
+     }
+ 
+     auto trackId =
+-        trackIdMap.contains(event.track) ? trackIdMap[event.track] : 1000;
++        trackIdMap.find(event.track) != trackIdMap.end() ? trackIdMap[event.track] : 1000;
+ 
+     // Emit "blink.user_timing" trace event
+     traceEvents.push_back(
