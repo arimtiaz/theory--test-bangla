@@ -224,9 +224,21 @@ function AppContent() {
       console.warn('[IAP] Could not finish transaction yet:', error);
     }
   }
-
   async function handleNativePurchaseSuccess(purchase: Purchase): Promise<void> {
-    if (purchase.productId !== IAP_LIFETIME_PRODUCT_ID) {
+    const purchasedIds = purchase.ids || [];
+    if (purchase.productId && !purchasedIds.includes(purchase.productId)) {
+        purchasedIds.push(purchase.productId);
+    }
+    console.log('[IAP-FLOW] Success: Store returned successful purchase!', {
+      productId: purchase.productId,
+      transactionId: purchase.transactionId,
+      purchasedIds: purchasedIds,
+      purchaseToken: purchase.purchaseToken ? '(present)' : '(missing)',
+      transactionDate: purchase.transactionDate,
+    });
+
+    if (!purchasedIds.includes(IAP_LIFETIME_PRODUCT_ID)) {
+      console.log(`[IAP-FLOW] Success: Ignored purchase SKU ${purchase.productId} - does not match target ${IAP_LIFETIME_PRODUCT_ID}`);
       pendingPurchaseFinishRef.current = purchase;
       await finalizePendingPurchaseTransaction(purchase);
       clearUpgradeState();
@@ -235,6 +247,8 @@ function AppContent() {
 
     const effectiveUserId =
       currentUserIdRef.current ?? (await resolveUserIdFromWebView());
+    
+    console.log(`[IAP-FLOW] Success: Beginning sync for user ${effectiveUserId}`);
 
     if (!effectiveUserId) {
       pendingPurchaseFinishRef.current = purchase;
@@ -338,12 +352,15 @@ function AppContent() {
     ): Promise<boolean> => {
       try {
         const previousAttempts = pendingPremiumSyncRef.current?.attempts ?? 0;
+        console.log(`[IAP-FLOW] Sync: Calling backend to upgrade ${userId} (Source: ${source}, Attempt: ${previousAttempts + 1})`);
+        
         const result = await UserService.upgradeUserToPremium(
           userId,
           accessToken ?? currentAccessTokenRef.current,
         );
 
         if (!result.success) {
+          console.warn(`[IAP-FLOW] Sync: Backend rejected upgrade (${result.statusCode ?? 'network error'}). Result message: ${result.message}`);
           if (result.retryable && previousAttempts + 1 < 5) {
             pendingPremiumSyncRef.current = {
               userId,
@@ -444,6 +461,7 @@ function AppContent() {
   }, [isUpgrading, schedulePendingPremiumSyncRetry, syncPremiumAccess]);
 
   const handleRestorePurchases = async () => {
+    console.log('[IAP-FLOW] Restore: Starting manual restore process...');
     const resolvedUserId = await resolveUserIdFromWebView();
     const precheck = getRestorePrecheck(Platform.OS, resolvedUserId);
 
@@ -453,16 +471,14 @@ function AppContent() {
     }
 
     if (precheck === 'missing-user') {
-      showToast('Please log in first to restore premium access.', 'info');
+      console.warn('[IAP] Restore aborted: missing user ID');
+      showToast('Please sign in to your account before restoring purchases.', 'info');
       return;
     }
 
     const restoreUserId = resolvedUserId;
-    if (!restoreUserId) {
-      return;
-    }
-
     if (!isStoreConnected) {
+      console.log('[IAP] Store disconnected during restore, attempting reconnect...');
       if (storeErrorReason && !isRetryableStoreError(storeErrorReason)) {
         showToast(getStoreErrorMessage(storeErrorReason), 'error');
       } else {
@@ -471,9 +487,10 @@ function AppContent() {
           await reconnect();
         } catch (reconnectError) {
           console.warn('[IAP] Reconnect for restore failed:', reconnectError);
+          showToast('Failed to connect to store. Please try again.', 'error');
+          return;
         }
       }
-      return;
     }
 
     setIsUpgrading(true);
@@ -484,12 +501,14 @@ function AppContent() {
       const matchingPurchase = findLifetimePurchase(purchases);
       const hasActiveSubscription = !!matchingPurchase;
 
+      console.log(`[IAP-FLOW] Restore: Store returned ${purchases.length} total purchases. Matching found: ${hasActiveSubscription}`);
+
       if (matchingPurchase) {
         pendingPurchaseFinishRef.current = matchingPurchase;
       }
 
       let synced = false;
-      if (hasActiveSubscription) {
+      if (hasActiveSubscription && restoreUserId) {
         synced = await syncPremiumAccess(
           restoreUserId,
           'restore',
@@ -619,7 +638,7 @@ function AppContent() {
 
       pendingPurchaseFinishRef.current = matchingPurchase;
 
-      console.log('[IAP] Found existing lifetime purchase, syncing premium access silently');
+      console.log('[IAP-FLOW] Sync: Found existing lifetime purchase, syncing premium access silently');
 
       const synced = await syncPremiumAccess(
         currentUserId,
@@ -689,7 +708,9 @@ function AppContent() {
     purchaseUserId?: string | null,
     purchaseAccessToken?: string | null,
   ) => {
+    console.log(`[IAP-FLOW] Initiation: Attempting to start native purchase for user: ${purchaseUserId || currentUserIdRef.current || 'unknown'}`);
     if (currentUserSubscription === 'premium' || premiumConfirmedRef.current) {
+      console.log('[IAP-FLOW] Initiation: Aborted - user already has premium');
       showToast('You already have premium access!', 'info');
       return;
     }
@@ -760,9 +781,9 @@ function AppContent() {
 
     clearPendingPurchaseSessionSync();
 
-    beginUpgradeState();
-
+    console.log(`[IAP-FLOW] Initiation: Requesting store purchase for SKU: ${IAP_LIFETIME_PRODUCT_ID}`);
     try {
+      beginUpgradeState();
       await requestPurchase({
         request: {
           apple: { sku: IAP_LIFETIME_PRODUCT_ID },
@@ -770,6 +791,7 @@ function AppContent() {
         },
         type: IAP_PRODUCT_TYPE,
       });
+      console.log('[IAP-FLOW] Initiation: Store modal shown successfully');
     } catch (err: any) {
       clearUpgradeState();
       showToast(getPurchaseErrorMessage(err), 'error');
@@ -795,8 +817,22 @@ function AppContent() {
       if (data && data.startsWith('{')) {
         const parsed = JSON.parse(data);
 
-        // Handle session data updates
-        if (parsed.type === 'SESSION_DATA') {
+        if (parsed.type === 'TRIGGER_NATIVE_IAP') {
+            console.log('[IAP-FLOW] Bridge: Received TRIGGER_NATIVE_IAP message from WebView');
+            startNativePurchase(parsed.userId, parsed.accessToken);
+            return;
+        }
+
+          if (parsed.type === 'URL_CHANGED') {
+            if (parsed.url !== currentUrl) {
+                console.log('[Navigation] SPA Route:', parsed.path);
+                setCurrentUrl(parsed.url);
+            }
+            return;
+          }
+
+          // Handle session data updates
+          if (parsed.type === 'SESSION_DATA') {
           if (parsed.userId !== currentUserId) {
             console.log('[Session] User ID:', parsed.userId);
             setCurrentUserId(parsed.userId);
@@ -808,7 +844,13 @@ function AppContent() {
           }
           if (parsed.subscription !== currentUserSubscription) {
             if (premiumConfirmedRef.current && parsed.subscription !== 'premium') {
-              console.log('[Session] Ignoring WebView subscription downgrade, premium confirmed by backend');
+              // The backend has confirmed premium, but the webview is still showing old state.
+              // We log this once as information then ignore subsequent 'free' signals.
+              if (currentUserSubscription === 'premium') {
+                  // Already set to premium, no need to log again unless it's a new 'free' signal
+              } else {
+                  console.log(`[IAP-FLOW] State: Ignoring WebView 'free' signal for user ${parsed.userId} (Premium confirmed by backend)`);
+              }
             } else {
               console.log('[Session] Subscription:', parsed.subscription);
               setCurrentUserSubscription(parsed.subscription);
@@ -1179,15 +1221,44 @@ function AppContent() {
         }));
     };
 
+    // SPA Navigation Detection
+    var lastPath = location.pathname;
+    function checkPathChange() {
+        if (location.pathname !== lastPath) {
+            lastPath = location.pathname;
+            console.log('[IAP] Path changed to:', lastPath);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'URL_CHANGED',
+                url: location.href,
+                path: location.pathname
+            }));
+            attemptExtractUser();
+        }
+    }
+
+    // Hook into History API for SPAs
+    var originalPushState = history.pushState;
+    history.pushState = function() {
+        originalPushState.apply(this, arguments);
+        checkPathChange();
+    };
+    var originalReplaceState = history.replaceState;
+    history.replaceState = function() {
+        originalReplaceState.apply(this, arguments);
+        checkPathChange();
+    };
+    window.addEventListener('popstate', checkPathChange);
+
     window.__ttbAttemptExtractUser = attemptExtractUser;
 
     // Initial extraction
     attemptExtractUser();
     installKeyboardHandlers();
     
-    // Periodic check every 2 seconds
+    // Periodic check and recovery
     setInterval(function() {
       attemptExtractUser();
+      checkPathChange();
       relaxNameFieldLimits();
     }, 2000);
 
@@ -1197,7 +1268,13 @@ function AppContent() {
   const showNativeUpgradeOverlay =
     (Platform.OS === 'ios' || Platform.OS === 'android') &&
     currentUserSubscription !== 'premium' &&
-    currentUrl.toLowerCase().includes('/premium-upgrade');
+    (currentUrl.toLowerCase().includes('/premium-upgrade') || 
+     currentUrl.toLowerCase().includes('/profile') ||
+     currentUrl.toLowerCase().includes('/account') ||
+     currentUrl.toLowerCase().includes('/dashboard') ||
+     currentUrl.toLowerCase().includes('/settings') ||
+     currentUrl.toLowerCase().includes('/membership') ||
+     currentUrl.toLowerCase().includes('/subscription'));
 
   return (
     <>
@@ -1275,6 +1352,16 @@ function AppContent() {
               {isUpgrading ? 'Starting purchase...' : 'Upgrade Now'}
             </Text>
           </Pressable>
+          {shouldShowRestoreAction(Platform.OS, currentUserId, currentUserSubscription) && (
+            <Pressable 
+              onPress={handleRestorePurchases} 
+              style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#160478', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' }}>
+                {restoreStatus === 'restoring' ? 'Restoring Purchases...' : 'Restore Purchases'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
       {showSplash && (

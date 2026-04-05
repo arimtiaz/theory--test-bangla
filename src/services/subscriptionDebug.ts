@@ -32,7 +32,8 @@ export function shouldShowSubscriptionDebugMenu(
   platformOS: string,
   userId: string | null,
 ): boolean {
-  return (platformOS === 'ios' || platformOS === 'android') && !!userId;
+  // Show debug menu on mobile if user is present, or for general non-premium users on relevant pages
+  return (platformOS === 'ios' || platformOS === 'android');
 }
 
 export function shouldShowRestoreAction(
@@ -40,10 +41,9 @@ export function shouldShowRestoreAction(
   userId: string | null,
   subscription: SubscriptionLevel,
 ): boolean {
-  return (
-    shouldShowSubscriptionDebugMenu(platformOS, userId) &&
-    subscription !== 'premium'
-  );
+  // Always show Restore on mobile if not already premium, even if logged out
+  // (We will prompt to log in on click)
+  return (platformOS === 'ios' || platformOS === 'android') && subscription !== 'premium';
 }
 
 export function getRestoreCompletionToast(

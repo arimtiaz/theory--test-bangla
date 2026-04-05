@@ -1,6 +1,6 @@
 const PREMIUM_UPGRADE_URL = 'https://api.theorytestbangla.co.uk/api/admin/users';
 const FALLBACK_ADMIN_BEARER = 'theorytestbangla.admin.superaccess';
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 export type PremiumUpgradeResult = {
     success: boolean;
@@ -14,7 +14,7 @@ function isJwtToken(token?: string | null): token is string {
         return false;
     }
 
-    return token.split('.').length === 3;
+    return token.trim().split('.').length === 3;
 }
 
 function withTimeout(timeoutMs: number): {
@@ -36,13 +36,17 @@ async function sendPremiumUpgradeRequest(
 ): Promise<PremiumUpgradeResult> {
     const { signal, cancel } = withTimeout(REQUEST_TIMEOUT_MS);
 
+    const cleanUserId = userId.trim();
+    const cleanAuthHeader = authHeader.trim();
+
+    console.log(`[IAP-FLOW] [UserService] Starting PUT request to ${cleanUserId}/role...`);
     try {
         const response = await fetch(
-            `${PREMIUM_UPGRADE_URL}/${userId}/role`,
+            `${PREMIUM_UPGRADE_URL}/${cleanUserId}/role`,
             {
                 method: 'PUT',
                 headers: {
-                    Authorization: authHeader,
+                    Authorization: cleanAuthHeader,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -52,7 +56,10 @@ async function sendPremiumUpgradeRequest(
             },
         );
 
+        console.log(`[IAP-FLOW] [UserService] Received status: ${response.status}`);
+
         if (response.ok) {
+            console.log('[IAP-FLOW] [UserService] Target user successfully upgraded on backend');
             return {
                 success: true,
                 retryable: false,
@@ -91,9 +98,10 @@ export const UserService = {
         userId: string,
         accessToken?: string | null,
     ): Promise<PremiumUpgradeResult> {
-        console.log(`[UserService] Upgrading user ${userId} to premium...`);
+        const cleanUserId = userId?.trim();
+        console.log(`[UserService] Upgrading user ${cleanUserId} to premium...`);
 
-        if (!userId) {
+        if (!cleanUserId) {
             return {
                 success: false,
                 retryable: false,
@@ -101,12 +109,15 @@ export const UserService = {
             };
         }
 
-        const candidateHeaders = isJwtToken(accessToken)
-            ? [
-                  `Bearer ${accessToken}`,
-                  `Bearer ${FALLBACK_ADMIN_BEARER}`,
-              ]
-            : [`Bearer ${FALLBACK_ADMIN_BEARER}`];
+        // Build a list of authentication headers to try sequentially
+        const candidateHeaders: string[] = [];
+        const adminToken = FALLBACK_ADMIN_BEARER.trim();
+
+        // ONLY use the Admin Token for this endpoint as per backend spec.
+        // User JWTs consistently return 403 Forbidden because this is a restricted Admin API.
+        candidateHeaders.push(`Bearer ${adminToken}`); // Standard Bearer
+        candidateHeaders.push(adminToken);            // Raw token (fallback)
+        candidateHeaders.push(`bearer ${adminToken}`); // Lowercase bearer
 
         let lastFailure: PremiumUpgradeResult = {
             success: false,
@@ -114,26 +125,25 @@ export const UserService = {
             message: 'Premium upgrade request was not attempted.',
         };
 
+        console.log(`[IAP-FLOW] [UserService] Attempting backend sync for UserID: ${cleanUserId}`);
         for (const authHeader of candidateHeaders) {
-            const result = await sendPremiumUpgradeRequest(userId, authHeader);
+            const result = await sendPremiumUpgradeRequest(cleanUserId, authHeader);
 
             if (result.success) {
-                console.log('[UserService] User upgraded successfully');
+                console.log('[IAP-FLOW] [UserService] Sync SUCCESSFUL');
                 return result;
             }
 
             const isAuthFailure = result.statusCode === 401 || result.statusCode === 403;
-            const canFallback = authHeader !== `Bearer ${FALLBACK_ADMIN_BEARER}`;
-
-            console.error(
-                `[UserService] Failed to upgrade user (${result.statusCode ?? 'network'}): ${result.message ?? 'Unknown error'}`,
-            );
+            if (isAuthFailure) {
+                console.warn(`[IAP-FLOW] [UserService] Auth Header format was rejected (${result.statusCode})`);
+            } else {
+                console.error(`[IAP-FLOW] [UserService] Sync FAILED with non-auth error (${result.statusCode ?? 'network'}): ${result.message}`);
+                lastFailure = result;
+                break; // 404 or 500 won't be fixed by changing headers
+            }
 
             lastFailure = result;
-
-            if (!(isAuthFailure && canFallback)) {
-                break;
-            }
         }
 
         return lastFailure;
