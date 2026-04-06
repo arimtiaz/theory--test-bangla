@@ -12,8 +12,8 @@ export type StoreErrorReason =
     | 'products-empty'
     | 'unknown';
 
-export function findLifetimeProduct(products: Product[]): Product | null {
-    return products.find(product => product.id === IAP_LIFETIME_PRODUCT_ID) ?? null;
+export function findLifetimeProduct(productsOrSubs: any[]): any | null {
+    return productsOrSubs.find(product => product.id === IAP_LIFETIME_PRODUCT_ID || product.productId === IAP_LIFETIME_PRODUCT_ID) ?? null;
 }
 
 export function findLifetimePurchase(purchases: Purchase[]): Purchase | null {

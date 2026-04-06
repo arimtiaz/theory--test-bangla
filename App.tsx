@@ -153,6 +153,7 @@ function AppContent() {
   const {
     connected: isStoreConnected,
     products,
+    subscriptions = [],
     fetchProducts,
     finishTransaction,
     requestPurchase,
@@ -185,7 +186,7 @@ function AppContent() {
       }
     },
   });
-  const lifetimeProduct = findLifetimeProduct(products);
+  const lifetimeProduct = findLifetimeProduct([...products, ...subscriptions]);
 
   const clearPendingPurchaseSessionSync = () => {
     pendingPurchaseAfterSessionSyncRef.current = false;
@@ -588,10 +589,16 @@ function AppContent() {
     productFetchAttemptsRef.current = 0;
 
     const attemptFetch = () => {
-      fetchProducts({
-        skus: IAP_PRODUCT_IDS,
-        type: IAP_PRODUCT_TYPE,
-      }).then(() => {
+      Promise.all([
+        fetchProducts({
+          skus: IAP_PRODUCT_IDS,
+          type: IAP_PRODUCT_TYPE,
+        }),
+        fetchProducts({
+          skus: IAP_PRODUCT_IDS,
+          type: 'subs',
+        }).catch(() => {})
+      ]).then(() => {
         productFetchAttemptsRef.current = 0;
       }).catch(error => {
         console.warn('[IAP] Product fetch failed:', error);
@@ -770,10 +777,16 @@ function AppContent() {
       } else {
         showToast(getUnavailablePurchaseMessage(), 'info');
       }
-      fetchProducts({
-        skus: IAP_PRODUCT_IDS,
-        type: IAP_PRODUCT_TYPE,
-      }).catch(error => {
+      Promise.all([
+        fetchProducts({
+          skus: IAP_PRODUCT_IDS,
+          type: IAP_PRODUCT_TYPE,
+        }),
+        fetchProducts({
+          skus: IAP_PRODUCT_IDS,
+          type: 'subs',
+        }).catch(() => {})
+      ]).catch(error => {
         console.warn('[IAP] Product refresh failed:', error);
       });
       return;
