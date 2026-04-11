@@ -1348,49 +1348,66 @@ function AppContent() {
       />
       {showNativeUpgradeOverlay && (
         <View pointerEvents="box-none" style={styles.nativeUpgradeOverlay}>
-          <Text style={styles.nativeUpgradeTitle}>Theory Test Bangla Premium</Text>
-          <Text style={styles.nativeUpgradeDescription}>
-            Lifetime access — one-time purchase
-          </Text>
-          {lifetimeProduct?.localizedPrice ? (
-            <Text style={styles.nativeUpgradePrice}>{lifetimeProduct.localizedPrice}</Text>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            disabled={isUpgrading}
-            onPress={() => {
-              startNativePurchase(currentUserId).catch(error => {
-                console.warn('[IAP] Overlay purchase start failed:', error);
-              });
-            }}
-            style={[
-              styles.nativeUpgradeButton,
-              isUpgrading && styles.nativeUpgradeButtonDisabled,
-            ]}
-            testID="native-upgrade-button"
-          >
-            <Text style={styles.nativeUpgradeButtonText}>
-              {isUpgrading ? 'Starting purchase...' : 'Upgrade Now'}
-            </Text>
-          </Pressable>
-          {shouldShowRestoreAction(Platform.OS, currentUserId, currentUserSubscription) && (
+          <View style={styles.nativeUpgradeCard}>
+            {/* Header */}
+            <View style={styles.nativeUpgradeHeader}>
+              <Text style={styles.nativeUpgradeBadge}>PREMIUM</Text>
+              <Text style={styles.nativeUpgradeTitle}>Theory Test Bangla Premium</Text>
+              <Text style={styles.nativeUpgradeDescription}>
+                Unlock all content with a one-time lifetime purchase
+              </Text>
+            </View>
+
+            {/* Price */}
+            <View style={styles.nativeUpgradePriceRow}>
+              <Text style={styles.nativeUpgradePrice}>
+                {lifetimeProduct?.localizedPrice ?? '£9.99'}
+              </Text>
+              <Text style={styles.nativeUpgradePriceLabel}> · one-time</Text>
+            </View>
+
+            {/* Buy button */}
             <Pressable
-              onPress={handleRestorePurchases}
-              style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}
+              accessibilityRole="button"
+              disabled={isUpgrading}
+              onPress={() => {
+                startNativePurchase(currentUserId).catch(error => {
+                  console.warn('[IAP] Overlay purchase start failed:', error);
+                });
+              }}
+              style={[
+                styles.nativeUpgradeButton,
+                isUpgrading && styles.nativeUpgradeButtonDisabled,
+              ]}
+              testID="native-upgrade-button"
             >
-              <Text style={{ color: '#160478', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' }}>
-                {restoreStatus === 'restoring' ? 'Restoring Purchases...' : 'Restore Purchases'}
+              <Text style={styles.nativeUpgradeButtonText}>
+                {isUpgrading ? 'Processing...' : 'Upgrade Now'}
               </Text>
             </Pressable>
-          )}
-          <View style={styles.nativeUpgradePolicyLinks}>
-            <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/privacy-policy')}>
-              <Text style={styles.nativeUpgradePolicyLinkText}>Privacy Policy</Text>
-            </Pressable>
-            <Text style={styles.nativeUpgradePolicySeparator}> · </Text>
-            <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/terms-of-use')}>
-              <Text style={styles.nativeUpgradePolicyLinkText}>Terms of Use</Text>
-            </Pressable>
+
+            {/* Restore */}
+            {shouldShowRestoreAction(Platform.OS, currentUserId, currentUserSubscription) && (
+              <Pressable
+                onPress={handleRestorePurchases}
+                style={{ paddingVertical: 10, alignItems: 'center' }}
+              >
+                <Text style={styles.nativeUpgradeRestoreText}>
+                  {restoreStatus === 'restoring' ? 'Restoring...' : 'Restore Purchases'}
+                </Text>
+              </Pressable>
+            )}
+
+            {/* Policy links */}
+            <View style={styles.nativeUpgradePolicyLinks}>
+              <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/privacy-policy')}>
+                <Text style={styles.nativeUpgradePolicyLinkText}>Privacy Policy</Text>
+              </Pressable>
+              <Text style={styles.nativeUpgradePolicySeparator}> · </Text>
+              <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/terms-of-use')}>
+                <Text style={styles.nativeUpgradePolicyLinkText}>Terms of Use</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       )}
@@ -1465,44 +1482,88 @@ const styles = StyleSheet.create({
   },
   nativeUpgradeOverlay: {
     position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 148,
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 950,
+  },
+  nativeUpgradeCard: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  nativeUpgradeHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  nativeUpgradeBadge: {
+    backgroundColor: '#f0e6ff',
+    color: '#9b00ff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginBottom: 10,
+    overflow: 'hidden',
   },
   nativeUpgradeTitle: {
     color: '#160478',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 6,
   },
   nativeUpgradeDescription: {
-    color: '#444',
+    color: '#666',
     fontSize: 13,
     textAlign: 'center',
-    marginBottom: 2,
+    lineHeight: 18,
+  },
+  nativeUpgradePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   nativeUpgradePrice: {
     color: '#160478',
-    fontSize: 15,
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  nativeUpgradePriceLabel: {
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  nativeUpgradeRestoreText: {
+    color: '#160478',
+    fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 10,
+    textDecorationLine: 'underline',
   },
   nativeUpgradePolicyLinks: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
   nativeUpgradePolicyLinkText: {
-    color: '#555',
+    color: '#999',
     fontSize: 12,
     textDecorationLine: 'underline',
   },
   nativeUpgradePolicySeparator: {
-    color: '#555',
+    color: '#999',
     fontSize: 12,
   },
   nativeUpgradeButton: {
