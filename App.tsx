@@ -810,8 +810,8 @@ function AppContent() {
     const effectiveUserId = purchaseUserId ?? currentUserIdRef.current ?? (await resolveUserIdFromWebView());
 
     if (!effectiveUserId) {
-      showToast('Could not detect your session. Please try again.', 'info');
-      requestSessionSnapshot();
+      console.log('[IAP-FLOW] Initiation: No user session — redirecting guest to sign up');
+      webViewRef.current?.injectJavaScript(`window.location.href = '/signup'; true;`);
       return;
     }
 
