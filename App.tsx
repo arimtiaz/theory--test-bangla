@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   Text,
+  Linking,
 } from 'react-native';
 import {
   ErrorCode,
@@ -1347,6 +1348,13 @@ function AppContent() {
       />
       {showNativeUpgradeOverlay && (
         <View pointerEvents="box-none" style={styles.nativeUpgradeOverlay}>
+          <Text style={styles.nativeUpgradeTitle}>Theory Test Bangla Premium</Text>
+          <Text style={styles.nativeUpgradeDescription}>
+            Lifetime access — one-time purchase
+          </Text>
+          {lifetimeProduct?.localizedPrice ? (
+            <Text style={styles.nativeUpgradePrice}>{lifetimeProduct.localizedPrice}</Text>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             disabled={isUpgrading}
@@ -1366,8 +1374,8 @@ function AppContent() {
             </Text>
           </Pressable>
           {shouldShowRestoreAction(Platform.OS, currentUserId, currentUserSubscription) && (
-            <Pressable 
-              onPress={handleRestorePurchases} 
+            <Pressable
+              onPress={handleRestorePurchases}
               style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}
             >
               <Text style={{ color: '#160478', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' }}>
@@ -1375,6 +1383,15 @@ function AppContent() {
               </Text>
             </Pressable>
           )}
+          <View style={styles.nativeUpgradePolicyLinks}>
+            <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/privacy-policy')}>
+              <Text style={styles.nativeUpgradePolicyLinkText}>Privacy Policy</Text>
+            </Pressable>
+            <Text style={styles.nativeUpgradePolicySeparator}> · </Text>
+            <Pressable onPress={() => Linking.openURL('https://theorytestbangla.co.uk/terms-of-use')}>
+              <Text style={styles.nativeUpgradePolicyLinkText}>Terms of Use</Text>
+            </Pressable>
+          </View>
         </View>
       )}
       {showSplash && (
@@ -1452,6 +1469,41 @@ const styles = StyleSheet.create({
     right: 24,
     bottom: 148,
     zIndex: 950,
+  },
+  nativeUpgradeTitle: {
+    color: '#160478',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  nativeUpgradeDescription: {
+    color: '#444',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  nativeUpgradePrice: {
+    color: '#160478',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  nativeUpgradePolicyLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  nativeUpgradePolicyLinkText: {
+    color: '#555',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  nativeUpgradePolicySeparator: {
+    color: '#555',
+    fontSize: 12,
   },
   nativeUpgradeButton: {
     alignItems: 'center',
