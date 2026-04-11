@@ -164,21 +164,36 @@ function AppContent() {
       void handleNativePurchaseSuccess(purchase);
     },
     onPurchaseError: error => {
+      console.error('[IAP-ERROR] onPurchaseError fired:', JSON.stringify({
+        code: error.code,
+        message: error.message,
+        debugMessage: (error as any).debugMessage,
+        responseCode: (error as any).responseCode,
+        userInfo: (error as any).userInfo,
+      }, null, 2));
+
       if (error.code === ErrorCode.UserCancelled) {
+        console.log('[IAP-ERROR] User cancelled the purchase dialog');
         showToast('Purchase cancelled', 'info');
       } else if (error.code === ErrorCode.AlreadyOwned) {
+        console.log('[IAP-ERROR] Product already owned');
         showToast('You already own this item. Try restoring your purchase.', 'info');
       } else if (error.code === ErrorCode.DeferredPayment) {
+        console.log('[IAP-ERROR] Payment deferred (Ask to Buy)');
         showToast('Your purchase is pending approval. It will be activated once confirmed.', 'info');
       } else {
-        console.error('[IAP] Purchase failed:', error);
+        console.error('[IAP-ERROR] Unhandled purchase error — code:', error.code, 'message:', error.message);
         showToast(getPurchaseErrorMessage(error), 'error');
       }
 
       clearUpgradeState();
     },
     onError: error => {
-      console.error('[IAP] Store operation failed:', error);
+      console.error('[IAP-ERROR] onError (store-level) fired:', JSON.stringify({
+        code: (error as any).code,
+        message: error.message,
+        debugMessage: (error as any).debugMessage,
+      }, null, 2));
       const reason = classifyStoreError(error as { code?: string; message?: string });
       setStoreErrorReason(reason);
 
@@ -818,6 +833,12 @@ function AppContent() {
     clearPendingPurchaseSessionSync();
 
     console.log(`[IAP-FLOW] Initiation: Requesting store purchase for SKU: ${IAP_LIFETIME_PRODUCT_ID}`);
+    console.log('[IAP-FLOW] Product at time of purchase:', JSON.stringify({
+      id: lifetimeProduct.productId ?? (lifetimeProduct as any).id,
+      displayPrice: (lifetimeProduct as any).displayPrice,
+      localizedPrice: lifetimeProduct.localizedPrice,
+      type: (lifetimeProduct as any).type,
+    }, null, 2));
     try {
       beginUpgradeState();
       await requestPurchase({
@@ -827,8 +848,13 @@ function AppContent() {
         },
         type: IAP_PRODUCT_TYPE,
       });
-      console.log('[IAP-FLOW] Initiation: Store modal shown successfully');
+      console.log('[IAP-FLOW] Initiation: Store modal presented successfully');
     } catch (err: any) {
+      console.error('[IAP-FLOW] requestPurchase threw synchronously:', JSON.stringify({
+        code: err?.code,
+        message: err?.message,
+        debugMessage: err?.debugMessage,
+      }, null, 2));
       clearUpgradeState();
       showToast(getPurchaseErrorMessage(err), 'error');
       return;
@@ -1508,7 +1534,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 90, // sit above the web app's bottom navigation bar
+    bottom: 120, // sit above the web app's bottom navigation bar
     zIndex: 950,
   },
   nativeUpgradeCard: {
