@@ -625,6 +625,28 @@ function AppContent() {
     };
   }, [fetchProducts, isStoreConnected]);
 
+  // Fetch product price when the upgrade overlay becomes visible and price isn't loaded yet
+  useEffect(() => {
+    const overlayVisible =
+      (Platform.OS === 'ios' || Platform.OS === 'android') &&
+      currentUserSubscription !== 'premium' &&
+      (currentUrl.toLowerCase().includes('/premium-upgrade') ||
+        currentUrl.toLowerCase().includes('/profile') ||
+        currentUrl.toLowerCase().includes('/account') ||
+        currentUrl.toLowerCase().includes('/dashboard') ||
+        currentUrl.toLowerCase().includes('/settings') ||
+        currentUrl.toLowerCase().includes('/membership') ||
+        currentUrl.toLowerCase().includes('/subscription'));
+
+    const price = (lifetimeProduct as any)?.displayPrice ?? lifetimeProduct?.localizedPrice;
+    if (!overlayVisible || price || !isStoreConnected) {
+      return;
+    }
+    fetchProducts({ skus: IAP_PRODUCT_IDS, type: IAP_PRODUCT_TYPE }).catch(() => {
+      fetchProducts({ skus: IAP_PRODUCT_IDS, type: 'subs' }).catch(() => {});
+    });
+  }, [currentUrl, currentUserSubscription, lifetimeProduct, isStoreConnected, fetchProducts]);
+
   useEffect(() => {
     if (!currentUserId || currentUserSubscription === 'premium' || !isStoreConnected) {
       return;
@@ -1361,7 +1383,9 @@ function AppContent() {
             {/* Price */}
             <View style={styles.nativeUpgradePriceRow}>
               <Text style={styles.nativeUpgradePrice}>
-                {lifetimeProduct?.localizedPrice ?? '£9.99'}
+                {(lifetimeProduct as any)?.displayPrice
+                  ?? lifetimeProduct?.localizedPrice
+                  ?? '£9.99'}
               </Text>
               <Text style={styles.nativeUpgradePriceLabel}> · one-time</Text>
             </View>
