@@ -204,6 +204,23 @@ function AppContent() {
   });
   const lifetimeProduct = findLifetimeProduct([...products, ...subscriptions]);
 
+  // Log full product object whenever it changes so we can compare prices
+  useEffect(() => {
+    if (!lifetimeProduct) {
+      console.log('[IAP-PRICE] lifetimeProduct not loaded yet. products:', products.length, 'subscriptions:', subscriptions.length);
+      return;
+    }
+    console.log('[IAP-PRICE] Full product object:', JSON.stringify(lifetimeProduct, null, 2));
+    console.log('[IAP-PRICE] Price fields summary:', JSON.stringify({
+      displayPrice: (lifetimeProduct as any).displayPrice,
+      localizedPrice: lifetimeProduct.localizedPrice,
+      price: (lifetimeProduct as any).price,
+      currency: (lifetimeProduct as any).currency,
+      productId: lifetimeProduct.productId ?? (lifetimeProduct as any).id,
+      type: (lifetimeProduct as any).type,
+    }, null, 2));
+  }, [lifetimeProduct]);
+
   const clearPendingPurchaseSessionSync = () => {
     pendingPurchaseAfterSessionSyncRef.current = false;
 
@@ -1330,13 +1347,24 @@ function AppContent() {
   const showNativeUpgradeOverlay =
     (Platform.OS === 'ios' || Platform.OS === 'android') &&
     currentUserSubscription !== 'premium' &&
-    (currentUrl.toLowerCase().includes('/premium-upgrade') || 
+    (currentUrl.toLowerCase().includes('/premium-upgrade') ||
      currentUrl.toLowerCase().includes('/profile') ||
      currentUrl.toLowerCase().includes('/account') ||
      currentUrl.toLowerCase().includes('/dashboard') ||
      currentUrl.toLowerCase().includes('/settings') ||
      currentUrl.toLowerCase().includes('/membership') ||
      currentUrl.toLowerCase().includes('/subscription'));
+
+  const overlayDisplayPrice =
+    (lifetimeProduct as any)?.displayPrice ??
+    lifetimeProduct?.localizedPrice ??
+    '£9.99 (fallback)';
+
+  if (showNativeUpgradeOverlay) {
+    console.log('[IAP-PRICE] Overlay rendering price:', overlayDisplayPrice, '| Source:',
+      (lifetimeProduct as any)?.displayPrice ? 'displayPrice' :
+      lifetimeProduct?.localizedPrice ? 'localizedPrice' : 'HARDCODED FALLBACK');
+  }
 
   return (
     <>
@@ -1409,9 +1437,7 @@ function AppContent() {
             {/* Price */}
             <View style={styles.nativeUpgradePriceRow}>
               <Text style={styles.nativeUpgradePrice}>
-                {(lifetimeProduct as any)?.displayPrice
-                  ?? lifetimeProduct?.localizedPrice
-                  ?? '£9.99'}
+                {overlayDisplayPrice}
               </Text>
               <Text style={styles.nativeUpgradePriceLabel}> · one-time</Text>
             </View>
