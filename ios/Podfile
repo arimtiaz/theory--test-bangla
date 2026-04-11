@@ -33,9 +33,14 @@ target 'TheoryTestBangla' do
 
     # Build settings fixes for RN 0.83.x on Xcode 16+
     installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        # RN 0.83.x uses C++20 requires clauses in bridging headers — must use c++20
-        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+          target.build_configurations.each do |config|
+            # Fix for fmt consteval error in Xcode 16.4+
+            if target.name == 'fmt'
+              config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+            else
+              # RN 0.83.x uses C++20 requires clauses in bridging headers — must use c++20
+              config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+            end
         # Fix for -Werror=non-modular-include-in-framework-module with newer Xcode
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         # Ensure deployment target is at least 13.4 for all pods
