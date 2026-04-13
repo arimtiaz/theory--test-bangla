@@ -53,7 +53,7 @@ jest.mock(
           {
             id: 'theorytestbanglapremium',
             title: 'Theory Test Bangla Premium',
-            displayPrice: '£9.99',
+            displayPrice: '£6.99',
           },
         ],
         fetchProducts,

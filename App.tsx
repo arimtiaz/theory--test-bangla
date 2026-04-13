@@ -8,6 +8,7 @@ import {
   Pressable,
   Text,
   Linking,
+  Share,
 } from 'react-native';
 import {
   ErrorCode,
@@ -90,10 +91,13 @@ function AppContent() {
   const lastAutoSyncedUserRef = useRef<string | null>(null);
   const productFetchRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const productFetchAttemptsRef = useRef(0);
+  const lifetimeProductRef = useRef<any | null>(null);
   const [isConnected, setIsConnected] = useState<boolean | null>(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isProductCatalogLoading, setIsProductCatalogLoading] = useState(false);
   const [storeErrorReason, setStoreErrorReason] = useState<StoreErrorReason | null>(null);
+  const [lastIapDebugEvent, setLastIapDebugEvent] = useState('No store events yet');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentAccessToken, setCurrentAccessToken] = useState<string | null>(null);
   const [currentUserSubscription, setCurrentUserSubscription] = useState<
@@ -116,6 +120,10 @@ function AppContent() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const recordIapDebugEvent = useCallback((message: string) => {
+    setLastIapDebugEvent(`${new Date().toISOString()} ${message}`);
+  }, []);
 
   const stopUpgradeWatchdog = useCallback(() => {
     if (upgradeWatchdogTimeoutRef.current) {
@@ -161,6 +169,7 @@ function AppContent() {
     reconnect,
   } = useIAP({
     onPurchaseSuccess: purchase => {
+      recordIapDebugEvent(`Purchase success for ${purchase.productId ?? 'unknown-product'}`);
       void handleNativePurchaseSuccess(purchase);
     },
     onPurchaseError: error => {
@@ -171,6 +180,9 @@ function AppContent() {
         responseCode: (error as any).responseCode,
         userInfo: (error as any).userInfo,
       }, null, 2));
+      recordIapDebugEvent(
+        `Purchase error ${error.code ?? 'unknown'}: ${error.message ?? 'No message'}`,
+      );
 
       if (error.code === ErrorCode.UserCancelled) {
         console.log('[IAP-ERROR] User cancelled the purchase dialog');
@@ -196,6 +208,9 @@ function AppContent() {
       }, null, 2));
       const reason = classifyStoreError(error as { code?: string; message?: string });
       setStoreErrorReason(reason);
+      recordIapDebugEvent(
+        `Store error ${String((error as any).code ?? 'unknown')} classified as ${reason}`,
+      );
 
       if (!isRetryableStoreError(reason)) {
         showToast(getStoreErrorMessage(reason), 'error');
@@ -203,6 +218,18 @@ function AppContent() {
     },
   });
   const lifetimeProduct = findLifetimeProduct([...products, ...subscriptions]);
+
+  useEffect(() => {
+    lifetimeProductRef.current = lifetimeProduct;
+
+    if (lifetimeProduct) {
+      setStoreErrorReason(null);
+      setIsProductCatalogLoading(false);
+      recordIapDebugEvent(
+        `Product loaded ${lifetimeProduct.productId ?? lifetimeProduct.id ?? 'unknown-product'} at ${String((lifetimeProduct as any).displayPrice ?? lifetimeProduct.localizedPrice ?? 'unknown-price')}`,
+      );
+    }
+  }, [lifetimeProduct, recordIapDebugEvent]);
 
   // Log full product object whenever it changes so we can compare prices
   useEffect(() => {
@@ -219,7 +246,7 @@ function AppContent() {
       productId: lifetimeProduct.productId ?? (lifetimeProduct as any).id,
       type: (lifetimeProduct as any).type,
     }, null, 2));
-  }, [lifetimeProduct]);
+  }, [lifetimeProduct, products.length, subscriptions.length]);
 
   const clearPendingPurchaseSessionSync = () => {
     pendingPurchaseAfterSessionSyncRef.current = false;
@@ -614,6 +641,7 @@ function AppContent() {
 
   useEffect(() => {
     if (!isStoreConnected) {
+      setIsProductCatalogLoading(false);
       return;
     }
 
@@ -622,6 +650,8 @@ function AppContent() {
     productFetchAttemptsRef.current = 0;
 
     const attemptFetch = () => {
+      setIsProductCatalogLoading(true);
+      recordIapDebugEvent(`Fetching product catalog for ${IAP_LIFETIME_PRODUCT_ID}`);
       Promise.all([
         fetchProducts({
           skus: IAP_PRODUCT_IDS,
@@ -633,10 +663,28 @@ function AppContent() {
         }).catch(() => {})
       ]).then(() => {
         productFetchAttemptsRef.current = 0;
+        setTimeout(() => {
+          if (lifetimeProductRef.current) {
+            setIsProductCatalogLoading(false);
+            setStoreErrorReason(null);
+            return;
+          }
+
+          console.warn('[IAP] Product fetch completed without the target SKU being available', {
+            sku: IAP_LIFETIME_PRODUCT_ID,
+          });
+          setIsProductCatalogLoading(false);
+          setStoreErrorReason('products-empty');
+          recordIapDebugEvent(`Product fetch returned without ${IAP_LIFETIME_PRODUCT_ID}`);
+        }, 300);
       }).catch(error => {
         console.warn('[IAP] Product fetch failed:', error);
+        setIsProductCatalogLoading(false);
         const reason = classifyStoreError(error as { code?: string; message?: string });
         setStoreErrorReason(reason);
+        recordIapDebugEvent(
+          `Product fetch failed with ${String((error as any)?.code ?? 'unknown')} classified as ${reason}`,
+        );
 
         // Retry for transient errors, up to 3 attempts
         if (isRetryableStoreError(reason) && productFetchAttemptsRef.current < 3) {
@@ -655,7 +703,7 @@ function AppContent() {
         productFetchRetryTimeoutRef.current = null;
       }
     };
-  }, [fetchProducts, isStoreConnected]);
+  }, [fetchProducts, isStoreConnected, recordIapDebugEvent]);
 
   // Fetch product price when the upgrade overlay becomes visible and price isn't loaded yet
   useEffect(() => {
@@ -827,7 +875,9 @@ function AppContent() {
 
     if (!lifetimeProduct) {
       // Distinguish between "products haven't loaded yet" vs "store error"
-      if (storeErrorReason) {
+      if (isProductCatalogLoading) {
+        showToast('Premium options are still loading from the App Store. Please wait a moment.', 'info');
+      } else if (storeErrorReason) {
         showToast(getStoreErrorMessage(storeErrorReason), 'error');
       } else {
         showToast(getUnavailablePurchaseMessage(), 'info');
@@ -850,6 +900,7 @@ function AppContent() {
     clearPendingPurchaseSessionSync();
 
     console.log(`[IAP-FLOW] Initiation: Requesting store purchase for SKU: ${IAP_LIFETIME_PRODUCT_ID}`);
+    recordIapDebugEvent(`Opening purchase sheet for ${IAP_LIFETIME_PRODUCT_ID}`);
     console.log('[IAP-FLOW] Product at time of purchase:', JSON.stringify({
       id: lifetimeProduct.productId ?? (lifetimeProduct as any).id,
       displayPrice: (lifetimeProduct as any).displayPrice,
@@ -867,6 +918,9 @@ function AppContent() {
       });
       console.log('[IAP-FLOW] Initiation: Store modal presented successfully');
     } catch (err: any) {
+      recordIapDebugEvent(
+        `requestPurchase threw ${String(err?.code ?? 'unknown')}: ${String(err?.message ?? 'No message')}`,
+      );
       console.error('[IAP-FLOW] requestPurchase threw synchronously:', JSON.stringify({
         code: err?.code,
         message: err?.message,
@@ -877,6 +931,50 @@ function AppContent() {
       return;
     }
   };
+
+  const productCatalogStatus = !isStoreConnected
+    ? 'offline'
+    : isProductCatalogLoading && !lifetimeProduct
+    ? 'loading'
+    : lifetimeProduct
+    ? 'loaded'
+    : storeErrorReason === 'products-empty'
+    ? 'missing-sku'
+    : storeErrorReason ?? 'idle';
+
+  const diagnosticsProductId = lifetimeProduct?.productId ?? (lifetimeProduct as any)?.id ?? 'not-loaded';
+  const diagnosticsProductPrice =
+    (lifetimeProduct as any)?.displayPrice ??
+    lifetimeProduct?.localizedPrice ??
+    'not-loaded';
+
+  const iapDiagnosticsSnapshot = [
+    `timestamp=${new Date().toISOString()}`,
+    `platform=${Platform.OS}`,
+    `userId=${currentUserId ?? 'none'}`,
+    `subscription=${currentUserSubscription ?? 'unknown'}`,
+    `storeConnected=${String(isStoreConnected)}`,
+    `catalogStatus=${productCatalogStatus}`,
+    `storeErrorReason=${storeErrorReason ?? 'none'}`,
+    `productId=${diagnosticsProductId}`,
+    `productPrice=${diagnosticsProductPrice}`,
+    `productsCount=${products.length}`,
+    `subscriptionsCount=${subscriptions.length}`,
+    `currentUrl=${currentUrl}`,
+    `lastEvent=${lastIapDebugEvent}`,
+  ].join('\n');
+
+  const shareIapDiagnostics = useCallback(async () => {
+    try {
+      await Share.share({
+        title: 'Theory Test Bangla IAP Diagnostics',
+        message: iapDiagnosticsSnapshot,
+      });
+    } catch (error) {
+      console.warn('[IAP] Failed to share diagnostics:', error);
+      showToast('Could not open the share sheet for diagnostics.', 'error');
+    }
+  }, [iapDiagnosticsSnapshot]);
 
   const onShouldStartLoadWithRequest = (request: any) => {
     const url = request?.url;
@@ -1358,12 +1456,12 @@ function AppContent() {
   const overlayDisplayPrice =
     (lifetimeProduct as any)?.displayPrice ??
     lifetimeProduct?.localizedPrice ??
-    '£9.99 (fallback)';
+    'See App Store';
 
   if (showNativeUpgradeOverlay) {
     console.log('[IAP-PRICE] Overlay rendering price:', overlayDisplayPrice, '| Source:',
       (lifetimeProduct as any)?.displayPrice ? 'displayPrice' :
-      lifetimeProduct?.localizedPrice ? 'localizedPrice' : 'HARDCODED FALLBACK');
+      lifetimeProduct?.localizedPrice ? 'localizedPrice' : 'STORE FALLBACK');
   }
 
   return (
@@ -1445,7 +1543,7 @@ function AppContent() {
             {/* Buy button */}
             <Pressable
               accessibilityRole="button"
-              disabled={isUpgrading}
+              disabled={isUpgrading || (isProductCatalogLoading && !lifetimeProduct)}
               onPress={() => {
                 startNativePurchase(currentUserId).catch(error => {
                   console.warn('[IAP] Overlay purchase start failed:', error);
@@ -1453,12 +1551,12 @@ function AppContent() {
               }}
               style={[
                 styles.nativeUpgradeButton,
-                isUpgrading && styles.nativeUpgradeButtonDisabled,
+                (isUpgrading || (isProductCatalogLoading && !lifetimeProduct)) && styles.nativeUpgradeButtonDisabled,
               ]}
               testID="native-upgrade-button"
             >
               <Text style={styles.nativeUpgradeButtonText}>
-                {isUpgrading ? 'Processing...' : 'Upgrade Now'}
+                {isUpgrading ? 'Processing...' : (isProductCatalogLoading && !lifetimeProduct) ? 'Loading...' : 'Upgrade Now'}
               </Text>
             </Pressable>
 
@@ -1509,6 +1607,11 @@ function AppContent() {
           isStoreConnected={isStoreConnected}
           isBusy={isUpgrading}
           restoreStatus={restoreStatus}
+          productCatalogStatus={productCatalogStatus}
+          productId={diagnosticsProductId}
+          productPrice={diagnosticsProductPrice}
+          storeErrorReason={storeErrorReason}
+          lastStoreEvent={lastIapDebugEvent}
           canRestore={shouldShowRestoreAction(
             Platform.OS,
             currentUserId,
@@ -1516,6 +1619,7 @@ function AppContent() {
           )}
           onToggle={() => setShowSubscriptionTools(value => !value)}
           onRestore={handleRestorePurchases}
+          onShareDiagnostics={shareIapDiagnostics}
         />
       )}
 

@@ -17,14 +17,14 @@ bundle exec pod install
 
 App Store Connect:
 
-- Create a non-consumable product with ID `theorytestbanglapremium` priced at £9.99 GBP.
+- Create a non-consumable product with ID `theorytestbanglapremium` priced at £6.99 GBP.
 - Ensure the iOS target has the In-App Purchase capability enabled.
 - Use a Sandbox tester on a physical device for the most reliable testing.
 - Simulator testing still requires launching from Xcode with the StoreKit configuration attached to the active scheme.
 
 Google Play Console:
 
-- Create a one-time product with ID `theorytestbanglapremium` priced at £9.99 GBP.
+- Create a one-time product with ID `theorytestbanglapremium` priced at £6.99 GBP.
 - Upload the app to an internal, closed, or open test track before testing purchases.
 - Add your test Google account under Settings → License testing.
 
