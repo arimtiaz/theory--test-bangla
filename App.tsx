@@ -24,7 +24,7 @@ import {
 } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import NoInternetScreen from './src/components/NoInternetScreen';
-import SubscriptionDebugPanel from './src/components/SubscriptionDebugPanel';
+// import SubscriptionDebugPanel from './src/components/SubscriptionDebugPanel';
 import {
   IAP_LIFETIME_PRODUCT_ID,
   IAP_PRODUCT_IDS,
@@ -45,9 +45,16 @@ import {
   getRestorePrecheck,
   RestoreStatus,
   shouldShowRestoreAction,
-  shouldShowSubscriptionDebugMenu,
+  // shouldShowSubscriptionDebugMenu,
 } from './src/services/subscriptionDebug';
 import { UserService } from './src/services/UserService';
+
+// Suppress all console output in production builds
+if (!__DEV__) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
 
 function App() {
   return (
@@ -1469,7 +1476,7 @@ function AppContent() {
     <View
       style={[
         styles.container,
-        { backgroundColor: '#FBFCFC', paddingBottom: insets.bottom },
+        { backgroundColor: '#160478', paddingBottom: insets.bottom },
       ]}
     >
       <StatusBar backgroundColor="#160478" barStyle="light-content" />
@@ -1599,6 +1606,7 @@ function AppContent() {
         />
       )}
 
+      {/* IAP debug panel — commented out for production release
       {shouldShowSubscriptionDebugMenu(Platform.OS, currentUserId) && (
         <SubscriptionDebugPanel
           visible={showSubscriptionTools}
@@ -1622,6 +1630,7 @@ function AppContent() {
           onShareDiagnostics={shareIapDiagnostics}
         />
       )}
+      */}
 
       {/* Custom Toast Overlay */}
       {toast && (
