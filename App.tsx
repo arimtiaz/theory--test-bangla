@@ -113,6 +113,7 @@ function AppContent() {
   const [currentUrl, setCurrentUrl] = useState('https://theorytestbangla.co.uk');
   const [webViewInstanceKey, setWebViewInstanceKey] = useState(0);
   const [showSplash, setShowSplash] = useState(true);
+  const [bottomNavColor, setBottomNavColor] = useState('#ffffff');
   const [showSubscriptionTools, setShowSubscriptionTools] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>('idle');
   const [toast, setToast] = useState<{
@@ -1015,6 +1016,11 @@ function AppContent() {
             return;
           }
 
+          if (parsed.type === 'NAV_COLOR' && parsed.color) {
+            setBottomNavColor(parsed.color);
+            return;
+          }
+
           // Handle session data updates
           if (parsed.type === 'SESSION_DATA') {
           if (parsed.userId !== currentUserId) {
@@ -1405,6 +1411,45 @@ function AppContent() {
         }));
     };
 
+    // Detect bottom navigation bar background color and report to native
+    function detectBottomNavColor() {
+      var candidates = [
+        'nav[class*="bottom" i]',
+        '[class*="bottom-nav" i]',
+        '[class*="bottomNav" i]',
+        '[class*="tab-bar" i]',
+        '[class*="tabBar" i]',
+        'nav',
+        '[role="navigation"]',
+        'footer'
+      ];
+      for (var s = 0; s < candidates.length; s++) {
+        try {
+          var el = document.querySelector(candidates[s]);
+          if (!el) continue;
+          var rect = el.getBoundingClientRect();
+          // Only consider elements near the bottom of the viewport
+          if (rect.bottom > window.innerHeight * 0.6 && rect.height > 0) {
+            var bg = window.getComputedStyle(el).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'NAV_COLOR',
+                color: bg
+              }));
+              return;
+            }
+          }
+        } catch(e) {}
+      }
+      // Fall back to body background
+      try {
+        var bodyBg = window.getComputedStyle(document.body).backgroundColor;
+        if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'NAV_COLOR', color: bodyBg }));
+        }
+      } catch(e) {}
+    }
+
     // SPA Navigation Detection
     var lastPath = location.pathname;
     function checkPathChange() {
@@ -1417,6 +1462,7 @@ function AppContent() {
                 path: location.pathname
             }));
             attemptExtractUser();
+            setTimeout(detectBottomNavColor, 300);
         }
     }
 
@@ -1438,13 +1484,16 @@ function AppContent() {
     // Initial extraction
     attemptExtractUser();
     installKeyboardHandlers();
-    
+    setTimeout(detectBottomNavColor, 800);
+
     // Periodic check and recovery
     setInterval(function() {
       attemptExtractUser();
       checkPathChange();
       relaxNameFieldLimits();
     }, 2000);
+    // Recheck nav color occasionally in case page re-renders
+    setInterval(detectBottomNavColor, 5000);
 
     console.log('[IAP] window.triggerNativeIAP is now available');
   })();`;
@@ -1476,7 +1525,7 @@ function AppContent() {
     <View
       style={[
         styles.container,
-        { backgroundColor: '#160478', paddingBottom: insets.bottom },
+        { backgroundColor: showSplash ? '#160478' : bottomNavColor, paddingBottom: insets.bottom },
       ]}
     >
       <StatusBar backgroundColor="#160478" barStyle="light-content" />
