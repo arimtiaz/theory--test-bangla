@@ -61,9 +61,6 @@
             ReferencedContainer = "container:TheoryTestBangla.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference
-         identifier = "../TheoryTestBangla/Products.storekit">
-      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

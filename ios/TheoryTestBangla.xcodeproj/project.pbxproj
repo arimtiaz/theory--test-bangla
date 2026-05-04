@@ -203,13 +203,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-TheoryTestBangla/Pods-TheoryTestBangla-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-TheoryTestBangla/Pods-TheoryTestBangla-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -246,13 +242,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-TheoryTestBangla/Pods-TheoryTestBangla-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-TheoryTestBangla/Pods-TheoryTestBangla-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -282,9 +274,11 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = TheoryTestBangla/TheoryTestBangla.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
-				DEVELOPMENT_TEAM = 57U9ZAMHPR;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 21;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 57U9ZAMHPR;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = TheoryTestBangla/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "theorytest Bangla";
@@ -294,7 +288,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 2.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -303,6 +297,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.theorytestbangla;
 				PRODUCT_NAME = TheoryTestBangla;
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = Imtiaz;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -318,9 +313,11 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = TheoryTestBangla/TheoryTestBangla.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
-				DEVELOPMENT_TEAM = 57U9ZAMHPR;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 21;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 57U9ZAMHPR;
 				INFOPLIST_FILE = TheoryTestBangla/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "theorytest Bangla";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -329,7 +326,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 2.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -338,6 +335,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.theorytestbangla;
 				PRODUCT_NAME = TheoryTestBangla;
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = Imtiaz;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};

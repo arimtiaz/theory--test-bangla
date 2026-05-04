@@ -170,7 +170,7 @@ function AppContent() {
   }, [stopUpgradeWatchdog]);
 
   const restartAppShell = useCallback((delayMs = 400) => {
-    setShowNativeOverlay(false);
+    setShowNativeOverlay(false)
     clearPendingPurchaseSessionSync();
     setShowSubscriptionTools(false);
     setCurrentUrl('https://theorytestbangla.co.uk');
@@ -1207,9 +1207,20 @@ function AppContent() {
 
         if (parsed.type === 'URL_CHANGED') {
           if (parsed.url !== currentUrl) {
-            console.log('URL CHANGED TO:', parsed.url);
+            // console.log('[Navigation] SPA Route:', parsed.path);
+            // Redirect guests away from upgrade page to signup
+             console.log('URL CHANGED TO:', parsed.url);
+            if (
+              !currentUserIdRef.current &&
+              parsed.url.toLowerCase().includes('/premium-upgrade')
+            ) {
+              webViewRef.current?.injectJavaScript(
+                `window.location.href = '/signup'; true;`,
+              );
+              return;
+            }
             setCurrentUrl(parsed.url);
-            setShowNativeOverlay(false);
+            console.log('URL CHANGED TO:', parsed.url);
           }
           return;
         }
@@ -1222,55 +1233,67 @@ function AppContent() {
         // Handle session data updates
         if (parsed.type === 'SESSION_DATA') {
     setIsSessionReady(true);
-    // Detect guest by decoding accessToken JWT
-    try {
-        if (parsed.accessToken) {
-            const parts = parsed.accessToken.split('.');
-            if (parts.length === 3) {
-                const payload = JSON.parse(atob(parts[1]));
-                const email = payload.email || '';
-                console.log('JWT EMAIL:', email);
-                if (email.includes('guest.theorytest.com')) {
-                    setIsGuestUser(true);
-                } else if (email) {
-                    setIsGuestUser(false);
-                }
-            }
-        }
-    } catch(e) {}
+    if (parsed.email && parsed.email.includes('guest.theorytest.com')) {
+        setIsGuestUser(true);
+    } else if (parsed.email) {
+        setIsGuestUser(false);
+    }
     if (parsed.userId !== currentUserId) {
         console.log('[Session] User ID:', parsed.userId);
         setCurrentUserId(parsed.userId);
     }
-    currentUserIdRef.current = parsed.userId ?? null;
-    if (typeof parsed.accessToken === 'string' || parsed.accessToken === null) {
-        setCurrentAccessToken(parsed.accessToken ?? null);
-        currentAccessTokenRef.current = parsed.accessToken ?? null;
-    }
-    if (parsed.subscription !== currentUserSubscription) {
-        if (premiumConfirmedRef.current && parsed.subscription !== 'premium') {
-            if (currentUserSubscription !== 'premium') {
-                console.log('[IAP-FLOW] State: Ignoring WebView free signal for user ' + parsed.userId);
+    if (parsed.userId !== currentUserId) {
+          if (parsed.userId !== currentUserId) {
+            console.log('[Session] User ID:', parsed.userId);
+            setCurrentUserId(parsed.userId);
+          }
+          currentUserIdRef.current = parsed.userId ?? null;
+          if (
+            typeof parsed.accessToken === 'string' ||
+            parsed.accessToken === null
+          ) {
+            setCurrentAccessToken(parsed.accessToken ?? null);
+            currentAccessTokenRef.current = parsed.accessToken ?? null;
+          }
+          if (parsed.subscription !== currentUserSubscription) {
+            if (
+              premiumConfirmedRef.current &&
+              parsed.subscription !== 'premium'
+            ) {
+              // The backend has confirmed premium, but the webview is still showing old state.
+              // We log this once as information then ignore subsequent 'free' signals.
+              if (currentUserSubscription === 'premium') {
+                // Already set to premium, no need to log again unless it's a new 'free' signal
+              } else {
+                console.log(
+                  `[IAP-FLOW] State: Ignoring WebView 'free' signal for user ${parsed.userId} (Premium confirmed by backend)`,
+                );
+              }
+            } else {
+              console.log('[Session] Subscription:', parsed.subscription);
+              setCurrentUserSubscription(parsed.subscription);
             }
-        } else {
-            console.log('[Session] Subscription:', parsed.subscription);
-            setCurrentUserSubscription(parsed.subscription);
+          }
+
+          if (sessionSnapshotResolverRef.current) {
+            sessionSnapshotResolverRef.current(parsed.userId ?? null);
+            sessionSnapshotResolverRef.current = null;
+          }
+
+          if (pendingPurchaseAfterSessionSyncRef.current && parsed.userId) {
+            clearPendingPurchaseSessionSync();
+            startNativePurchase(
+              parsed.userId,
+              parsed.accessToken ?? currentAccessTokenRef.current,
+            );
+          }
+
+          return;
         }
-    }
-    if (sessionSnapshotResolverRef.current) {
-        sessionSnapshotResolverRef.current(parsed.userId ?? null);
-        sessionSnapshotResolverRef.current = null;
-    }
-    if (pendingPurchaseAfterSessionSyncRef.current && parsed.userId) {
-        clearPendingPurchaseSessionSync();
-        startNativePurchase(parsed.userId, parsed.accessToken ?? currentAccessTokenRef.current);
-    }
-    return;
-}
 
         // Handle IAP trigger from website
         if (parsed.type === 'TRIGGER_IAP') {
-          setShowNativeOverlay(true);
+          setShowNativeOverlay(true); 
           console.log(
             '[IAP] Trigger received from website, userId:',
             parsed.userId,
@@ -1503,7 +1526,6 @@ function AppContent() {
                 } catch(e) {}
                 return {
                     id: directUserId,
-                    email: localStorage.getItem('user_email') || localStorage.getItem('email') || '',
                   accessToken: localStorage.getItem('accessToken') || localStorage.getItem('authToken') || null,
                     subscription: subscription,
                     user_metadata: { subscription: subscription }
@@ -1586,11 +1608,6 @@ function AppContent() {
 
     // Extract user session and subscription status
     function attemptExtractUser() {
-    var keys = [];
-for (var i = 0; i < localStorage.length; i++) {
-    keys.push(localStorage.key(i));
-}
-console.log('LOCALSTORAGE KEYS:', JSON.stringify(keys));
         try {
             const user = findSupabaseUser();
             if (user) {
@@ -1724,10 +1741,10 @@ console.log('LOCALSTORAGE KEYS:', JSON.stringify(keys));
     (Platform.OS === 'ios' || Platform.OS === 'android') &&
     isSessionReady &&
     !!currentUserId &&
+    !!currentAccessToken &&
     !isGuestUser &&
     currentUserSubscription === 'free' &&
-    (currentUrl.toLowerCase().includes('/premium-upgrade') ||
-      currentUrl.toLowerCase().includes('/profile') ||
+    (currentUrl.toLowerCase().includes('/profile') ||
      currentUrl.toLowerCase().includes('/account') ||
      currentUrl.toLowerCase().includes('/dashboard') ||
      currentUrl.toLowerCase().includes('/settings') ||
@@ -1735,8 +1752,8 @@ console.log('LOCALSTORAGE KEYS:', JSON.stringify(keys));
      currentUrl.toLowerCase().includes('/subscription'));
 
   const overlayDisplayPrice =
-    lifetimeProduct?.localizedPrice ??
     (lifetimeProduct as any)?.displayPrice ??
+    lifetimeProduct?.localizedPrice ??
     'See App Store';
 
   if (showNativeUpgradeOverlay) {
